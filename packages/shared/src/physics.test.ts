@@ -42,4 +42,32 @@ describe("simulateTrajectory", () => {
     const vyAfter = vy + GAME_CONFIG.gravity * dt;
     expect(vyAfter).toBeGreaterThan(vy);
   });
+
+  it("stops when the arrow reaches the ground (groundBelow > 0)", () => {
+    const points = simulateTrajectory({ angle: 30, power: 70, wind: 0, groundBelow: 62 });
+    const last = points[points.length - 1]!;
+    // atteint le sol : y dépasse le seuil, sans le dépasser énormément
+    expect(last.y).toBeGreaterThan(62);
+    expect(last.y).toBeLessThan(62 + 200);
+  });
+
+  it("stops at the horizontal world bounds", () => {
+    const points = simulateTrajectory({
+      angle: 10,
+      power: 100,
+      wind: 0,
+      boundsX: { min: -190, max: 1090 },
+    });
+    const last = points[points.length - 1]!;
+    expect(last.x).toBeGreaterThanOrEqual(-190);
+    expect(last.x).toBeLessThanOrEqual(1090);
+  });
+
+  it("lower gravity gives a longer flight (same wind, same input)", () => {
+    const heavy = simulateTrajectory({ angle: 45, power: 90, wind: 0, gravity: 900 });
+    const light = simulateTrajectory({ angle: 45, power: 90, wind: 0, gravity: 500 });
+    const lastHeavy = heavy[heavy.length - 1]!;
+    const lastLight = light[light.length - 1]!;
+    expect(lastLight.x).toBeGreaterThan(lastHeavy.x);
+  });
 });

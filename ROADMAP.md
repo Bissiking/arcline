@@ -29,15 +29,16 @@ de gameplay pure (physique, dégâts, tours) vit dans `packages/shared` afin d'�
 
 ### Gameplay solo
 
-- Terrain unique, simple et lisible (extérieur)
+- Plusieurs terrains (ciel, relief, flore) tirés au sort, chacun avec une **gravité propre**
 - Personnage archer (sprites temporaires si pas d'assets)
 - Visée à la souris : clic → drag → angle + puissance → relâchement → tir
 - Physique balistique (gravité, vent) configurable via `GAME_CONFIG`
+- Distance du bot variable (toujours dans la portée d'un tir max)
 - Tours : le joueur tire, le **bot** (IA simple) lui répond
 - 100 HP, dégâts par zone touchée (HEAD / BODY / LEGS)
 - Vent généré par tour, réellement intégré à la trajectoire
 - Victoire / défaite + revanche
-- HUD : joueur actif, angle, puissance, PV ×2, direction + force du vent
+- HUD : joueur actif, angle, puissance, PV ×2, direction + force du vent, compteur de tour
 - Son (placeholder si aucun asset libre)
 - Desktop prioritaire, architecture compatible mobile
 - Tout se joue côté client ; la logique pure reste dans `packages/shared`

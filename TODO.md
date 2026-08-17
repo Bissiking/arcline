@@ -40,63 +40,66 @@ Sources : `AI PROMPT INFOS/prompt.md` et `AI PROMPT INFOS/kyros-integration.md`.
 - [x] Hitboxes HEAD / BODY / LEGS sur le personnage (positions relatives) dans `packages/shared/src/hitbox.ts` + visualisation overlay
 - [x] Constantes de layout : tailles, positions, hauteurs (`src/game/layout.ts`)
 
-## Phase 4 — Visée à la souris
+## Phase 4 — Visée à la souris (fait)
 
-- [ ] Clic → drag → angle (0-90°) + puissance (0-100) → relâchement → tir
-- [ ] Affichage direction + puissance pendant le drag (pas la trajectoire complète)
-- [ ] Validation client des valeurs avant simulation
+- [x] Clic → drag → angle (0-90°) + puissance (0-100) → relâchement → tir
+- [x] Affichage direction (rayon + flèche) + puissance pendant le drag (pas la trajectoire complète)
+- [x] Validation client des valeurs avant simulation (`aim-math.ts`, tests)
+- [x] Réglage physique (`GAME_CONFIG` : gravity 700, arrowSpeedScale 10) pour que le tir atteigne l'adversaire
 
-## Phase 5 — Projectile & physique
+## Phase 5 — Projectile & physique (fait)
 
-- [ ] Trajectoire balistique (`GAME_CONFIG` : gravité, échelle vitesse)
-- [ ] Animation de la flèche le long de la trajectoire
-- [ ] Arrêt au contact du sol / hors du monde
+- [x] Trajectoire balistique (`GAME_CONFIG` : gravité, échelle vitesse) + arrêt au sol `groundBelow` / bornes `boundsX` dans `packages/shared`
+- [x] Animation de la flèche le long de la trajectoire (`ArrowShot`, rotation suivant le sens)
+- [x] Arrêt au contact du sol / hors du monde (flèche plantée puis fondu)
 
-## Phase 6 — Vent
+## Phase 6 — Vent (fait)
 
-- [ ] Génération du vent par tour (`GAME_CONFIG.windMin/max`)
-- [ ] Écart de trajectoire réel sous l'effet du vent
-- [ ] Affichage direction + force du vent
+- [x] Génération du vent (`generateWind()` dans `packages/shared`, bornes `GAME_CONFIG.windMin/max`)
+- [x] Écart de trajectoire réel sous l'effet du vent (déjà intégré à `simulateTrajectory`, appliqué)
+- [x] Affichage direction + force du vent (« Vent → 4 » en haut de l'écran) — régénéré par tour en Phase 7
 
-## Phase 7 — Bot adverse (IA simple)
+## Phase 7 — Bot adverse (IA simple) (fait)
 
-- [ ] Bot qui choisit angle + puissance (stratégie simple + bruit)
-- [ ] Alternance des tours joueur ↔ bot (délai de tir du bot)
-- [ ] Sauvegarde du choix de tir du bot dans la logique partagée
+- [x] Bot qui choisit angle + puissance (stratégie simple + bruit)
+- [x] Alternance des tours joueur ↔ bot (délai de tir du bot)
+- [x] Sauvegarde du choix de tir du bot dans la logique partagée
 
-## Phase 8 — Dégâts, victoire & revanche
+## Phase 8 — Dégâts, victoire & revanche (fait)
 
-- [ ] Détection d'impact par hitbox, dégâts config (`HEAD=50, BODY=30, LEGS=20`)
-- [ ] Barres de PV (100 HP)
-- [ ] Condition de victoire / défaite + écran de fin
-- [ ] Revanche : relancer une partie contre le bot
+- [x] Détection d'impact par hitbox, dégâts config (`HEAD=50, BODY=30, LEGS=20`)
+- [x] Barres de PV (100 HP)
+- [x] Condition de victoire / défaite + écran de fin
+- [x] Revanche : relancer une partie contre le bot
 
-## Phase 9 — HUD & polish
+## Phase 9 — HUD & polish (fait)
 
-- [ ] HUD : joueur actif, angle, puissance, PV ×2, vent
-- [ ] Rétroactions : tir, impact, dégâts (flash / shake)
-- [ ] Style moderne et simple, desktop prioritaire
+- [x] HUD : joueur actif, angle, puissance, PV ×2, vent
+- [x] Rétroactions : tir, impact, dégâts (flash / shake + sons)
+- [x] Style moderne et simple, desktop prioritaire
+- [x] Menu Réglages en jeu : musique, sons, volume, tracé de la dernière flèche, aide (point d'atterrissage)
 
-## Phase 10 — Son (placeholder possible)
+## Phase 10 — Son
 
-- [ ] Module audio (tir, impact) avec placeholders si aucun asset
-- [ ] Sons libres documentés dans `docs/ASSETS.md` (nom, URL, licence) ou rien
+- [x] Module audio (tir, impact, musique) procédural WebAudio + pistes SUNO via manifest.json (dossier `public/audio/music/`)
+- [x] Affichage de la piste en cours dans le HUD (« ♪ titre · auteur »)
+- [x] Sons libres documentés dans `docs/ASSETS.md` (procédural + workflow Suno)
 
-## Phase 11 — Tests solo (Vitest)
+## Phase 11 — Tests solo (Vitest) (fait)
 
-- [ ] Trajectoire (angle, vent, gravité)
-- [ ] Validation du tir (angle/power hors limites)
-- [ ] Dégâts par hitbox
-- [ ] Changement de tour (joueur → bot → joueur)
-- [ ] Condition de victoire / fin de partie
-- [ ] Vent : modifie réellement la portée
-- [ ] Bot : produit un angle/power valides
+- [x] Trajectoire (angle, vent, gravité)
+- [x] Validation du tir (angle/power hors limites)
+- [x] Dégâts par hitbox
+- [x] Changement de tour (joueur → bot → joueur)
+- [x] Condition de victoire / fin de partie
+- [x] Vent : modifie réellement la portée
+- [x] Bot : produit un angle/power valides
 
-## Phase 12 — Documentation livrable V1
+## Phase 12 — Documentation livrable V1 (fait)
 
-- [ ] `README.md` complet (description, architecture, prérequis, install, dev, build, ports)
-- [ ] Mettre à jour `TODO.md` / `ROADMAP.md` à l'avancement
-- [ ] Vérification finale : `pnpm build`, `pnpm typecheck`, `pnpm test` sans erreur
+- [x] `README.md` complet (description, architecture, prérequis, install, dev, build, ports)
+- [x] Mettre à jour `TODO.md` / `ROADMAP.md` à l'avancement
+- [x] Vérification finale : `pnpm build`, `pnpm typecheck`, `pnpm test` sans erreur
 
 ---
 

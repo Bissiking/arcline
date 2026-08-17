@@ -7,8 +7,10 @@ export const GAME_CONFIG = {
   angleMax: 90,
   powerMin: 0,
   powerMax: 100,
-  gravity: 1200,
-  arrowSpeedScale: 7,
+  // Équilibrage : arc de 900 px à couvrir. Portée max ≈ S²·P²/g (à 45°).
+  // Avec S=10, g=700 : ≈ 1430 px à 100 %, ~915 px à 80 %.
+  gravity: 700,
+  arrowSpeedScale: 10,
   windMin: -10,
   windMax: 10,
   damage: {
@@ -33,5 +35,13 @@ export function isValidPower(power: number): boolean {
     power >= GAME_CONFIG.powerMin &&
     power <= GAME_CONFIG.powerMax &&
     Number.isFinite(power)
+  );
+}
+
+/** Vent généré par tour, entier dans [windMin, windMax]. Positif = vers la droite. */
+export function generateWind(): number {
+  return (
+    GAME_CONFIG.windMin +
+    Math.round(Math.random() * (GAME_CONFIG.windMax - GAME_CONFIG.windMin))
   );
 }

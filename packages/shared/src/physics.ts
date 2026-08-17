@@ -15,6 +15,15 @@ export interface BallisticInput {
   wind: number;
   dt?: number;
   maxSteps?: number;
+  /** Gravité (px/s²). Défaut : GAME_CONFIG.gravity. */
+  gravity?: number;
+}
+
+export interface TrajectoryInput extends BallisticInput {
+  /** Distance positive vers le bas : fin du vol quand y > groundBelow. */
+  groundBelow?: number;
+  /** Bornes horizontales (relatives au lancement) : arrêt si dépassées. */
+  boundsX?: { min: number; max: number };
 }
 
 export interface BallisticState {
@@ -33,9 +42,11 @@ export function initialVelocity(angle: number, power: number): { vx: number; vy:
   };
 }
 
-export function simulateTrajectory(input: BallisticInput): TrajectoryPoint[] {
+export function simulateTrajectory(input: TrajectoryInput): TrajectoryPoint[] {
   const dt = input.dt ?? 1 / 60;
   const maxSteps = input.maxSteps ?? 600;
+  const groundBelow = input.groundBelow ?? 0;
+  const gravity = input.gravity ?? GAME_CONFIG.gravity;
 
   const { vx, vy } = initialVelocity(input.angle, input.power);
   const points: TrajectoryPoint[] = [{ x: 0, y: 0, t: 0 }];
@@ -45,19 +56,25 @@ export function simulateTrajectory(input: BallisticInput): TrajectoryPoint[] {
   let vyNow = vy;
 
   for (let step = 1; step <= maxSteps; step += 1) {
-    vyNow += GAME_CONFIG.gravity * dt;
+    vyNow += gravity * dt;
     vxNow += input.wind * dt;
     x += vxNow * dt;
     y += vyNow * dt;
     points.push({ x, y, t: step * dt });
-    if (y > 0) break;
+    if (y > groundBelow) break;
+    if (input.boundsX && (x < input.boundsX.min || x > input.boundsX.max)) break;
   }
 
   return points;
 }
 
-export function stepTrajectory(state: BallisticState, wind: number, dt: number): BallisticState {
-  const vy = state.vy + GAME_CONFIG.gravity * dt;
+export function stepTrajectory(
+  state: BallisticState,
+  wind: number,
+  dt: number,
+  gravity: number = GAME_CONFIG.gravity,
+): BallisticState {
+  const vy = state.vy + gravity * dt;
   const vx = state.vx + wind * dt;
   return {
     x: state.x + vx * dt,

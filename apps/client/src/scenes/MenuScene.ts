@@ -1,8 +1,11 @@
 // apps/client/src/scenes/MenuScene.ts
-// Menu principal : titre, bouton Solo (→ GameScene), bouton Multiplayer verrouillé.
+// Menu principal — « panneau de tournoi » : bannière, cibles décoratives,
+// boutons Solo (→ GameScene) et Multi verrouillé.
 
 import Phaser from "phaser";
+import { WORLD } from "../game/layout.js";
 import { createButton } from "../ui/button.js";
+import { createPill } from "../ui/pill.js";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY, colorToNumber } from "../ui/tokens.js";
 import { SCENE_KEYS } from "./keys.js";
 
@@ -18,101 +21,164 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor(COLORS.bg);
+    this.drawBackdrop();
     this.buildLayout();
     this.centerUi();
     this.scale.on("resize", this.centerUi, this);
+    this.events.once("shutdown", () => this.scale.off("resize", this.centerUi, this));
+  }
+
+  private drawBackdrop(): void {
+    const g = this.add.graphics().setDepth(0);
+    g.fillGradientStyle(
+      colorToNumber("#20331f"),
+      colorToNumber("#20331f"),
+      colorToNumber("#0e150d"),
+      colorToNumber("#0e150d"),
+      1,
+    );
+    g.fillRect(0, 0, WORLD.width, WORLD.height);
+
+    // Vaste ciel rond (lumière tamisée par-dessus)
+    g.fillStyle(colorToNumber(COLORS.accent), 0.03);
+    g.fillCircle(WORLD.width / 2, WORLD.height * 0.36, 320);
+    g.fillStyle(colorToNumber(COLORS.accent), 0.05);
+    g.fillCircle(WORLD.width / 2, WORLD.height * 0.36, 200);
+
+    // Anneaux de cible en filigrane
+    const ringsX = WORLD.width / 2;
+    const ringsY = WORLD.height * 0.34;
+    g.lineStyle(2, colorToNumber(COLORS.accent), 0.12);
+    const radii = [150, 116, 82, 48, 14];
+    for (const radius of radii) {
+      g.strokeCircle(ringsX, ringsY, radius);
+    }
+
+    // Herméneutique : large halo de sol
+    g.fillStyle(colorToNumber(COLORS.surface), 0.35);
+    g.fillEllipse(WORLD.width / 2, WORLD.height + 60, 1400, 260);
   }
 
   private buildLayout(): void {
-    const title = this.add
-      .text(0, -170, "ARCLINE", {
+    // Les éléments sont ajoutés puis regroupés dans `this.ui` centré.
+    const elements: Phaser.GameObjects.GameObject[] = [];
+
+    // Bannière derrière le titre
+    const banner = this.add.graphics();
+    banner.fillStyle(colorToNumber(COLORS.surface), 0.92);
+    banner.fillRoundedRect(-240, -105, 480, 158, RADIUS.lg);
+    banner.lineStyle(2, colorToNumber(COLORS.border), 0.9);
+    banner.strokeRoundedRect(-240, -105, 480, 158, RADIUS.lg);
+    banner.fillStyle(colorToNumber(COLORS.accent), 0.7);
+    banner.fillRoundedRect(-240, 45, 480, 6, 3);
+    elements.push(banner);
+
+    // Titre en ombre portée puis plein
+    const shadow = this.add
+      .text(2, -96, "ARCLINE", {
         fontFamily: TYPOGRAPHY.fontFamilyTitle,
         fontSize: `${TYPOGRAPHY.sizes.headline}px`,
-        color: COLORS.accent,
+        color: "#00000055",
       })
-      .setLetterSpacing(10)
+      .setLetterSpacing(7)
       .setOrigin(0.5);
+
+    const title = this.add
+      .text(0, -100, "ARCLINE", {
+        fontFamily: TYPOGRAPHY.fontFamilyTitle,
+        fontSize: `${TYPOGRAPHY.sizes.headline}px`,
+        color: COLORS.text,
+      })
+      .setLetterSpacing(7)
+      .setOrigin(0.5);
+    elements.push(shadow, title);
 
     const tagline = this.add
-      .text(0, -104, "Duel d'archers au tour par tour", {
+      .text(0, -44, "DUEL D'ARCHERS · TOUR PAR TOUR", {
         fontFamily: TYPOGRAPHY.fontFamily,
-        fontSize: "17px",
+        fontSize: "15px",
         color: COLORS.textMuted,
       })
-      .setOrigin(0.5);
-
-    const divider = this.add.graphics();
-    divider.lineStyle(2, colorToNumber(COLORS.border), 1);
-    divider.lineBetween(-110, -62, 110, -62);
-
-    const modeLabel = this.add
-      .text(0, -34, "Choisissez un mode", {
-        fontFamily: TYPOGRAPHY.fontFamily,
-        fontSize: `${TYPOGRAPHY.sizes.small}px`,
-        color: COLORS.textMuted,
-      })
+      .setFont(`${TYPOGRAPHY.weights.semibold} 15px ${TYPOGRAPHY.fontFamily}`)
       .setLetterSpacing(3)
       .setOrigin(0.5);
+    elements.push(tagline);
 
     const soloButton = createButton(
       this,
       0,
-      18,
+      40,
       "Jouer en solo",
       () => this.scene.start(SCENE_KEYS.GameScene),
       {
-        width: 280,
-        height: 56,
-        fontSize: 20,
+        width: 330,
+        height: 58,
+        fontSize: 24,
+        fontFamily: TYPOGRAPHY.fontFamilyTitle,
+        letterSpacing: 3,
+        uppercase: true,
         fill: COLORS.accent,
         hoverFill: COLORS.accentHover,
-        textColor: COLORS.bg,
+        textColor: COLORS.surface,
+        border: COLORS.goldSoft,
       },
     );
+    elements.push(soloButton);
 
     const multiplayerButton = createButton(
       this,
       0,
-      104,
-      "🔒  Multiplayer",
+      118,
+      "Multijoueur",
       () => undefined,
       {
-        width: 280,
-        height: 56,
-        fontSize: 20,
-        fill: COLORS.surface,
-        hoverFill: COLORS.surface,
+        width: 330,
+        height: 58,
+        fontSize: 22,
+        fontFamily: TYPOGRAPHY.fontFamilyTitle,
+        letterSpacing: 3,
+        uppercase: true,
+        fill: COLORS.surfaceAlt,
         textColor: COLORS.textDisabled,
+        border: COLORS.border,
         disabled: true,
       },
     );
+    elements.push(multiplayerButton);
 
-    const soonBadge = this.createSoonBadge(220, 104);
+    const soon = createPill(
+      this,
+      208,
+      118,
+      "Bientôt",
+      {
+        fill: COLORS.surfaceAlt,
+        textColor: COLORS.accent,
+        border: COLORS.goldSoft,
+        fontSize: TYPOGRAPHY.sizes.tiny,
+        paddingX: 10,
+        height: 24,
+        shadow: false,
+      },
+    );
+    elements.push(soon.container);
 
     const hint = this.add
-      .text(0, 158, "Le mode multijoueur arrive en V2", {
+      .text(0, 176, "Le mode multijoueur arrive dans la V2", {
         fontFamily: TYPOGRAPHY.fontFamily,
         fontSize: `${TYPOGRAPHY.sizes.small}px`,
         color: COLORS.textDisabled,
       })
       .setOrigin(0.5);
+    elements.push(hint);
 
-    this.ui = this.add.container(0, 0, [
-      title,
-      tagline,
-      divider,
-      modeLabel,
-      soloButton,
-      multiplayerButton,
-      soonBadge,
-      hint,
-    ]);
+    this.ui = this.add.container(0, 0, elements);
     this.ui.setAlpha(0);
-    this.tweens.add({ targets: this.ui, alpha: 1, duration: 450, ease: "sine.out" });
+    this.tweens.add({ targets: this.ui, alpha: 1, duration: 550, ease: "sine.out" });
     this.tweens.add({
       targets: title,
-      scale: 1.03,
-      duration: 1100,
+      scale: 1.02,
+      duration: 1400,
       yoyo: true,
       repeat: -1,
       ease: "sine.inOut",
@@ -125,27 +191,6 @@ export class MenuScene extends Phaser.Scene {
         color: COLORS.textDisabled,
       })
       .setOrigin(0.5, 1);
-  }
-
-  private createSoonBadge(x: number, y: number): Phaser.GameObjects.Container {
-    const width = 92;
-    const height = 28;
-    const bg = this.add.graphics();
-    bg.fillStyle(colorToNumber(COLORS.surfaceAlt), 1);
-    bg.fillRoundedRect(-width / 2, -height / 2, width, height, RADIUS.lg);
-    bg.lineStyle(1, colorToNumber(COLORS.accent), 0.7);
-    bg.strokeRoundedRect(-width / 2, -height / 2, width, height, RADIUS.lg);
-
-    const label = this.add
-      .text(0, 0, "Bientôt", {
-        fontFamily: TYPOGRAPHY.fontFamily,
-        fontSize: `${TYPOGRAPHY.sizes.tiny}px`,
-        color: COLORS.accent,
-      })
-      .setLetterSpacing(1)
-      .setOrigin(0.5);
-
-    return this.add.container(x, y, [bg, label]);
   }
 
   private centerUi(): void {

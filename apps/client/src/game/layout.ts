@@ -10,11 +10,22 @@ export const GROUND_Y = 640;
 export const GROUND_THICKNESS = 80;
 export const GROUND_EDGE = 128;
 
-/** Abscisse des pieds de chaque archer (au niveau du sol). */
+/** Abscisse des pieds de l'archer joueur (au niveau du sol). */
 export const PLAYER_FEET_X = {
   left: 190,
-  right: 1090,
 } as const;
+
+/** Intervalle de placement du bot : toujours dans la portée d'un tir max. */
+export const BOT_FEET_X = {
+  min: 920,
+  max: 1160,
+} as const;
+
+/** Position des pieds du bot, tirée dans l'intervalle de portée. */
+export function randomBotFeetX(rng: () => number = Math.random): number {
+  const range = BOT_FEET_X.max - BOT_FEET_X.min;
+  return BOT_FEET_X.min + Math.round(rng() * range);
+}
 
 export const ARCHER_HEIGHT = 118;
 

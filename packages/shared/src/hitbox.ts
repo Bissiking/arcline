@@ -34,3 +34,14 @@ export function hitBodyPart(
   }
   return null;
 }
+
+/** Résout la partie du corps touchée par un impact en coordonnées monde. */
+export function resolveBodyPart(
+  hitboxes: readonly HitboxRect[],
+  x: number,
+  y: number,
+  feetX: number,
+  feetY: number,
+): BodyPart | null {
+  return hitBodyPart(hitboxes, x - feetX, feetY - y);
+}
