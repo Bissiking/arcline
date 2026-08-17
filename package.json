@@ -1,0 +1,16 @@
+{
+  "name": "arcline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Duel d'archers 1v1 multijoueur en ligne (Bowman-like original)",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @arcline/shared build && pnpm --parallel --filter @arcline/server --filter @arcline/client dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}
