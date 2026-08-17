@@ -5,7 +5,7 @@ import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene.js";
 import { GameScene } from "./scenes/GameScene.js";
 import { MenuScene } from "./scenes/MenuScene.js";
-import { WORLD } from "./game/layout.js";
+import { VIEWPORT } from "./game/layout.js";
 import { COLORS } from "./ui/tokens.js";
 import "./style.css";
 
@@ -14,8 +14,8 @@ new Phaser.Game({
   parent: "app",
   scale: {
     mode: Phaser.Scale.FIT,
-    width: WORLD.width,
-    height: WORLD.height,
+    width: VIEWPORT.width,
+    height: VIEWPORT.height,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   backgroundColor: COLORS.bg,

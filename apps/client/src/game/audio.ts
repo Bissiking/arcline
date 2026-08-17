@@ -5,7 +5,13 @@
 // musique / sons.
 
 import type { GameSettings } from "./settings.js";
-import { getMusicTracks } from "./music-manifest.js";
+import {
+  getMusicTracks,
+  type MusicTrack,
+} from "./music-manifest.js";
+
+/** Contexte de lecture : piste d'écran titre ou piste de partie. */
+export type GameAudioKind = "menu" | "match";
 
 const FALLBACK_CHORDS: readonly (readonly number[])[] = [
   [220, 277.18, 329.63],
@@ -27,6 +33,7 @@ export class GameAudio {
   private readonly ctx: AudioContext | null;
   private readonly musicBus: GainNode | null;
   private readonly sfxBus: GainNode | null;
+  private readonly kind: GameAudioKind;
 
   private musicOn: boolean;
   private sfxOn: boolean;
@@ -36,8 +43,9 @@ export class GameAudio {
   private fallbackTimer: number | null = null;
   private currentTrack: { title: string; author: string } | null = null;
 
-  constructor(scene: Phaser.Scene, settings: GameSettings) {
+  constructor(scene: Phaser.Scene, settings: GameSettings, kind: GameAudioKind = "match") {
     this.scene = scene;
+    this.kind = kind;
     const context = (scene.sound as Phaser.Sound.WebAudioSoundManager).context;
     this.ctx = context ?? null;
     this.musicOn = settings.musicEnabled;
@@ -114,7 +122,7 @@ export class GameAudio {
   private playMusic(): void {
     if (!this.musicOn || this.music || this.fallbackTimer !== null) return;
 
-    const track = getMusicTracks()[0];
+    const track = this.pickTrack();
     if (track && this.scene.cache.audio.exists(track.id)) {
       const sound = this.scene.sound.add(track.id, {
         loop: true,
@@ -127,6 +135,24 @@ export class GameAudio {
     }
 
     this.startFallbackMusic();
+  }
+
+  /**
+   * Choix de la piste selon le contexte :
+   * - menu → piste `role: "title"` (sinon la première) ;
+   * - partie → une piste de jeu tirée au sort.
+   */
+  private pickTrack(): MusicTrack | undefined {
+    const tracks = getMusicTracks();
+    if (tracks.length === 0) return undefined;
+
+    if (this.kind === "menu") {
+      return tracks.find((t) => t.role === "title") ?? tracks[0];
+    }
+
+    const matchTracks = tracks.filter((t) => t.role !== "title");
+    const pool = matchTracks.length > 0 ? matchTracks : tracks;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   private stopMusic(): void {

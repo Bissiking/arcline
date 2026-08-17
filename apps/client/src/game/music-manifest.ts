@@ -7,6 +7,8 @@ export interface MusicTrack {
   title: string;
   author: string;
   file: string;
+  /** `title` : piste réservée à l'écran de titre (menu). Sinon : piste de partie. */
+  role?: "title";
 }
 
 let tracks: readonly MusicTrack[] = [];

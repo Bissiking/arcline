@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from "vitest";
 import { GAME_CONFIG } from "./config.js";
-import { initialVelocity, simulateTrajectory } from "./physics.js";
+import {
+  initialVelocity,
+  maxRange,
+  reachableGravity,
+  simulateTrajectory,
+} from "./physics.js";
 
 describe("initialVelocity", () => {
   it("has no horizontal component at 90°", () => {
@@ -69,5 +74,25 @@ describe("simulateTrajectory", () => {
     const lastHeavy = heavy[heavy.length - 1]!;
     const lastLight = light[light.length - 1]!;
     expect(lastLight.x).toBeGreaterThan(lastHeavy.x);
+  });
+});
+
+describe("maxRange / reachableGravity", () => {
+  it("max range shrinks when gravity grows", () => {
+    expect(maxRange(560)).toBeGreaterThan(maxRange(860));
+  });
+
+  it("reachable gravity keeps the distance reachable with margin", () => {
+    const distance = 2310;
+    const g = reachableGravity(distance);
+    // At 45°/100 % : portée >= distance * marge, sinon l'ennemi est intouchable.
+    expect(maxRange(g)).toBeGreaterThanOrEqual(distance * 1.15);
+    // Une carte à fort vent/se mais à forte gravité serait adoucie.
+    expect(Math.min(860, g)).toBeLessThan(860);
+  });
+
+  it("close distances keep standard gravity unchanged", () => {
+    const g = reachableGravity(900);
+    expect(Math.min(GAME_CONFIG.gravity, g)).toBe(GAME_CONFIG.gravity);
   });
 });

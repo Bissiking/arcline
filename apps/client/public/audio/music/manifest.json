@@ -1,3 +1,29 @@
 {
-  "tracks": []
+  "tracks": [
+    {
+      "id": "corde-tendue",
+      "title": "Corde tendue",
+      "author": "SUNO",
+      "file": "Corde Tendue.mp3"
+    },
+    {
+      "id": "pixel-tonnerre",
+      "title": "Pixel Tonnerre",
+      "author": "SUNO",
+      "file": "Pixel Tonnerre.mp3"
+    },
+    {
+      "id": "orage-lointain",
+      "title": "Orage lointain",
+      "author": "SUNO",
+      "file": "Orage lointain.mp3"
+    },
+    {
+      "id": "main-title",
+      "title": "Thème principal",
+      "author": "SUNO",
+      "file": "Main title.mp3",
+      "role": "title"
+    }
+  ]
 }

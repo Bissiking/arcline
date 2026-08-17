@@ -7,10 +7,13 @@ export const GAME_CONFIG = {
   angleMax: 90,
   powerMin: 0,
   powerMax: 100,
-  // Équilibrage : arc de 900 px à couvrir. Portée max ≈ S²·P²/g (à 45°).
-  // Avec S=10, g=700 : ≈ 1430 px à 100 %, ~915 px à 80 %.
+  // Équilibrage : monde 2560 px, adversaire jusqu'à ~2500 px de distance.
+  // Portée max ≈ S²·P²/g (à 45°). Avec S=14, g=860 : ≈ 2280 px à 100 %,
+  // g=700 : ≈ 2800 px, g=560 : ≈ 3500 px. Pour les gros écarts, la gravité
+  // effective est adoucie côté client afin que la cible reste toujours
+  // atteignable (voir reachableGravity).
   gravity: 700,
-  arrowSpeedScale: 10,
+  arrowSpeedScale: 14,
   windMin: -10,
   windMax: 10,
   damage: {

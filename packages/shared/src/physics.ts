@@ -68,6 +68,24 @@ export function simulateTrajectory(input: TrajectoryInput): TrajectoryPoint[] {
   return points;
 }
 
+/** Portée max théorique (100 % de puissance, angle 45°) pour une gravité donnée. */
+export function maxRange(
+  gravity: number,
+  speedScale: number = GAME_CONFIG.arrowSpeedScale,
+): number {
+  return (GAME_CONFIG.powerMax * speedScale) ** 2 / gravity;
+}
+
+/** Gravité maximale autorisée pour que `distance` reste atteignable (avec marge). */
+export function reachableGravity(
+  distance: number,
+  margin: number = 1.15,
+  speedScale: number = GAME_CONFIG.arrowSpeedScale,
+): number {
+  const usableDistance = Math.max(distance, 1) * margin;
+  return (GAME_CONFIG.powerMax * speedScale) ** 2 / usableDistance;
+}
+
 export function stepTrajectory(
   state: BallisticState,
   wind: number,

@@ -24,6 +24,8 @@ export interface SettingsMenuOptions {
   x: number;
   y: number;
   settings: GameSettings;
+  /** Conteneur « fixe à l'écran » vers lequel déplacer les objets du panneau. */
+  layer?: Phaser.GameObjects.Container;
   onChange: (settings: GameSettings) => void;
   onClose: () => void;
 }
@@ -37,13 +39,27 @@ export function createSettingsMenu(
   scene: Phaser.Scene,
   options: SettingsMenuOptions,
 ): SettingsMenuHandle {
-  const { x: cx, y: cy, onChange, onClose } = options;
+  const { x: cx, y: cy, onChange, onClose, layer } = options;
   const objects: (
     | Phaser.GameObjects.Graphics
     | Phaser.GameObjects.Text
     | Phaser.GameObjects.Container
     | Phaser.GameObjects.Rectangle
   )[] = [];
+
+  // État édité : chaque contrôle modifie cette copie, pour que les réglages
+  // s'accumulent (sinon le volume ou les toggles reviennent à leur valeur
+  // d'ouverture dès qu'on touche un autre bouton).
+  const draft: GameSettings = { ...options.settings };
+  const change = (patch: Partial<GameSettings>): void => {
+    Object.assign(draft, patch);
+    onChange(draft);
+  };
+
+  const add = (object: (typeof objects)[number]): void => {
+    objects.push(object);
+    layer?.add(object);
+  };
 
   const dim = scene.add
     .rectangle(
@@ -55,12 +71,12 @@ export function createSettingsMenu(
       0.45,
     )
     .setDepth(59);
-  objects.push(dim);
+  add(dim);
 
   const bg = scene.add.graphics().setDepth(60);
   drawPanel(bg, 0, 0);
   bg.setPosition(cx, cy);
-  objects.push(bg);
+  add(bg);
 
   const title = scene.add
     .text(cx, cy - PANEL.height / 2 + 36, "RÉGLAGES", {
@@ -71,10 +87,10 @@ export function createSettingsMenu(
     .setLetterSpacing(4)
     .setOrigin(0.5)
     .setDepth(61);
-  objects.push(title);
+  add(title);
 
   const addRowLabel = (y: number, label: string): void => {
-    objects.push(
+    add(
       scene.add
         .text(cx - 90, cy + y, label, {
           fontFamily: TYPOGRAPHY.fontFamily,
@@ -117,7 +133,7 @@ export function createSettingsMenu(
       draw();
       onToggle(value);
     });
-    objects.push(container);
+    add(container);
   };
 
   const volume = (y: number, initial: number): void => {
@@ -138,10 +154,10 @@ export function createSettingsMenu(
     const apply = (delta: number): void => {
       value = Math.min(1, Math.max(0, value + delta));
       update();
-      onChange({ ...options.settings, volume: value });
+      change({ volume: value });
     };
 
-    objects.push(
+    add(
       createButton(scene, cx + 30, cy + y, "−", () => apply(-0.1), {
         width: 44,
         height: 34,
@@ -149,8 +165,8 @@ export function createSettingsMenu(
         textColor: COLORS.text,
       }).setDepth(61),
     );
-    objects.push(valueText);
-    objects.push(
+    add(valueText);
+    add(
       createButton(scene, cx + 150, cy + y, "+", () => apply(0.1), {
         width: 44,
         height: 34,
@@ -177,29 +193,23 @@ export function createSettingsMenu(
       textColor: COLORS.bg,
     },
   ).setDepth(61);
-  objects.push(close);
+  add(close);
 
   addRowLabel(ROW_Y.music, "Musique");
-  togglePill(ROW_Y.music, options.settings.musicEnabled, (v) =>
-    onChange({ ...options.settings, musicEnabled: v }),
-  );
+  togglePill(ROW_Y.music, draft.musicEnabled, (v) => change({ musicEnabled: v }));
 
   addRowLabel(ROW_Y.sfx, "Sons");
-  togglePill(ROW_Y.sfx, options.settings.sfxEnabled, (v) =>
-    onChange({ ...options.settings, sfxEnabled: v }),
-  );
+  togglePill(ROW_Y.sfx, draft.sfxEnabled, (v) => change({ sfxEnabled: v }));
 
   addRowLabel(ROW_Y.volume, "Volume");
-  volume(ROW_Y.volume, options.settings.volume);
+  volume(ROW_Y.volume, draft.volume);
 
   addRowLabel(ROW_Y.aid, "Aide (atterrissage)");
-  togglePill(ROW_Y.aid, options.settings.showAid, (v) =>
-    onChange({ ...options.settings, showAid: v }),
-  );
+  togglePill(ROW_Y.aid, draft.showAid, (v) => change({ showAid: v }));
 
   addRowLabel(ROW_Y.trace, "Tracé de la dernière flèche");
-  togglePill(ROW_Y.trace, options.settings.showLastTrace, (v) =>
-    onChange({ ...options.settings, showLastTrace: v }),
+  togglePill(ROW_Y.trace, draft.showLastTrace, (v) =>
+    change({ showLastTrace: v }),
   );
 
   return {

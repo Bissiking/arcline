@@ -3,9 +3,21 @@
 // boutons Solo (→ GameScene) et Multi verrouillé.
 
 import Phaser from "phaser";
-import { WORLD } from "../game/layout.js";
+import { GameAudio } from "../game/audio.js";
+import { VIEWPORT } from "../game/layout.js";
+import {
+  DEFAULT_SETTINGS,
+  loadSettings,
+  saveSettings,
+  type GameSettings,
+} from "../game/settings.js";
 import { createButton } from "../ui/button.js";
+import { createIconButton } from "../ui/icon-button.js";
 import { createPill } from "../ui/pill.js";
+import {
+  createSettingsMenu,
+  type SettingsMenuHandle,
+} from "../ui/settings-menu.js";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY, colorToNumber } from "../ui/tokens.js";
 import { SCENE_KEYS } from "./keys.js";
 
@@ -14,6 +26,11 @@ const MENU_CENTER_Y = 0.42;
 export class MenuScene extends Phaser.Scene {
   private ui?: Phaser.GameObjects.Container;
   private footer?: Phaser.GameObjects.Text;
+  private audio?: GameAudio;
+  private settingsButton?: Phaser.GameObjects.Container;
+  private settings: GameSettings = DEFAULT_SETTINGS;
+  private settingsOpen = false;
+  private settingsMenu?: SettingsMenuHandle;
 
   constructor() {
     super(SCENE_KEYS.MenuScene);
@@ -21,11 +38,55 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor(COLORS.bg);
+    this.settings = loadSettings();
     this.drawBackdrop();
     this.buildLayout();
+    this.createSettingsButton();
     this.centerUi();
     this.scale.on("resize", this.centerUi, this);
     this.events.once("shutdown", () => this.scale.off("resize", this.centerUi, this));
+
+    this.audio = new GameAudio(this, this.settings, "menu");
+    this.input.once("pointerdown", () => this.audio?.unlock());
+    this.events.once("shutdown", () => {
+      this.audio?.destroy();
+      this.settingsMenu?.destroy();
+    });
+  }
+
+  private createSettingsButton(): void {
+    this.settingsButton = createIconButton(
+      this,
+      0,
+      0,
+      "gear",
+      () => this.openSettings(),
+      { size: 48 },
+    );
+  }
+
+  private openSettings(): void {
+    if (this.settingsOpen) return;
+    this.settingsOpen = true;
+    this.settingsButton?.setVisible(false);
+    this.settingsMenu = createSettingsMenu(this, {
+      x: this.scale.width / 2,
+      y: this.scale.height / 2,
+      settings: this.settings,
+      onChange: (next) => {
+        this.settings = next;
+        saveSettings(next);
+        this.audio?.applySettings(next);
+      },
+      onClose: () => this.closeSettings(),
+    });
+  }
+
+  private closeSettings(): void {
+    this.settingsOpen = false;
+    this.settingsButton?.setVisible(true);
+    this.settingsMenu?.destroy();
+    this.settingsMenu = undefined;
   }
 
   private drawBackdrop(): void {
@@ -37,17 +98,17 @@ export class MenuScene extends Phaser.Scene {
       colorToNumber("#0e150d"),
       1,
     );
-    g.fillRect(0, 0, WORLD.width, WORLD.height);
+    g.fillRect(0, 0, VIEWPORT.width, VIEWPORT.height);
 
     // Vaste ciel rond (lumière tamisée par-dessus)
     g.fillStyle(colorToNumber(COLORS.accent), 0.03);
-    g.fillCircle(WORLD.width / 2, WORLD.height * 0.36, 320);
+    g.fillCircle(VIEWPORT.width / 2, VIEWPORT.height * 0.36, 320);
     g.fillStyle(colorToNumber(COLORS.accent), 0.05);
-    g.fillCircle(WORLD.width / 2, WORLD.height * 0.36, 200);
+    g.fillCircle(VIEWPORT.width / 2, VIEWPORT.height * 0.36, 200);
 
     // Anneaux de cible en filigrane
-    const ringsX = WORLD.width / 2;
-    const ringsY = WORLD.height * 0.34;
+    const ringsX = VIEWPORT.width / 2;
+    const ringsY = VIEWPORT.height * 0.34;
     g.lineStyle(2, colorToNumber(COLORS.accent), 0.12);
     const radii = [150, 116, 82, 48, 14];
     for (const radius of radii) {
@@ -56,7 +117,7 @@ export class MenuScene extends Phaser.Scene {
 
     // Herméneutique : large halo de sol
     g.fillStyle(colorToNumber(COLORS.surface), 0.35);
-    g.fillEllipse(WORLD.width / 2, WORLD.height + 60, 1400, 260);
+    g.fillEllipse(VIEWPORT.width / 2, VIEWPORT.height + 60, 1400, 260);
   }
 
   private buildLayout(): void {
@@ -197,5 +258,6 @@ export class MenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.ui?.setPosition(width / 2, height * MENU_CENTER_Y);
     this.footer?.setPosition(width / 2, height - SPACING.sm - 8);
+    this.settingsButton?.setPosition(width - SPACING.md - 24, SPACING.md + 24);
   }
 }

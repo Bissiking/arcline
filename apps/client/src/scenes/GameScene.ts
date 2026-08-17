@@ -9,6 +9,7 @@ import {
   chooseBotShot,
   evaluateVictory,
   generateWind,
+  reachableGravity,
   resolveBodyPart,
   simulateTrajectory,
   type BodyPart,
@@ -25,6 +26,7 @@ import {
   GROUND_Y,
   PLAYER_FEET_X,
   SIDE_LABEL,
+  VIEWPORT,
   WORLD,
   randomBotFeetX,
 } from "../game/layout.js";
@@ -36,6 +38,7 @@ import {
 } from "../game/settings.js";
 import { drawTerrain } from "../game/terrain.js";
 import { createButton } from "../ui/button.js";
+import { createIconButton } from "../ui/icon-button.js";
 import { createPill, type Pill } from "../ui/pill.js";
 import {
   createSettingsMenu,
@@ -92,6 +95,10 @@ export class GameScene extends Phaser.Scene {
   private env: Environment = pickEnvironment();
   /** Position des pieds du bot — variable d'une partie à l'autre. */
   private botX = 1090;
+  /** Gravité effective de la partie (carte, adoucie si l'adversaire est loin). */
+  private gravity: number = GAME_CONFIG.gravity;
+  /** Distance (px) entre le joueur et l'adversaire. */
+  private enemyDistance = 0;
   /** Numéro de tour du joueur (incrémenté à chaque « Votre tour »). */
   private turnNumber = 0;
   /** PV affichés (animés vers les PV réels). */
@@ -102,6 +109,13 @@ export class GameScene extends Phaser.Scene {
   private botAimRay?: Phaser.GameObjects.Graphics;
   private botWindupActive = false;
 
+  /** Cible de la caméra (position que l'on veut montrer, sauf pendant un vol). */
+  private cameraTargetX: number = PLAYER_FEET_X.left;
+  /** Objet que la caméra suit (position mise à jour dans syncCamera). */
+  private cameraFocus?: Phaser.GameObjects.Rectangle;
+  /** HUD fixe à l'écran, replacé sur la caméra à chaque frame. */
+  private hudLayer?: Phaser.GameObjects.Container;
+
   constructor() {
     super(SCENE_KEYS.GameScene);
   }
@@ -110,8 +124,22 @@ export class GameScene extends Phaser.Scene {
     this.resetFields();
     this.env = pickEnvironment();
     this.botX = randomBotFeetX();
+    this.enemyDistance = this.botX - PLAYER_FEET_X.left;
+    // L'adversaire peut apparaître loin : on adoucit la gravité si besoin pour
+    // que le tir max (100 %, 45°) garde une marge suffisante.
+    this.gravity = Math.min(
+      this.env.gravity,
+      reachableGravity(this.enemyDistance),
+    );
     this.cameras.main.setBackgroundColor(COLORS.bg);
+    this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
     this.settings = loadSettings();
+
+    this.hudLayer = this.add.container(0, 0).setDepth(50);
+    this.cameraFocus = this.add
+      .rectangle(PLAYER_FEET_X.left, WORLD.height / 2, 1, 1)
+      .setVisible(false);
+    this.cameras.main.startFollow(this.cameraFocus, true, 0.22, 0.22);
 
     this.audio = new GameAudio(this, this.settings);
     this.input.once("pointerdown", () => this.audio?.unlock());
@@ -149,14 +177,15 @@ export class GameScene extends Phaser.Scene {
       },
     });
 
-    this.add
-      .text(12, WORLD.height - 30, "Cliquez et glissez vers la cible · relâchez pour tirer", {
-        fontFamily: TYPOGRAPHY.fontFamily,
-        fontSize: `${TYPOGRAPHY.sizes.small}px`,
-        color: COLORS.textMuted,
-      })
-      .setOrigin(0, 0)
-      .setDepth(2);
+    this.hudLayer.add(
+      this.add
+        .text(12, VIEWPORT.height - 30, "Cliquez et glissez vers la cible · relâchez pour tirer", {
+          fontFamily: TYPOGRAPHY.fontFamily,
+          fontSize: `${TYPOGRAPHY.sizes.small}px`,
+          color: COLORS.textMuted,
+        })
+        .setOrigin(0, 0),
+    );
 
     this.drawHudBand();
     this.createHudButtons();
@@ -166,30 +195,32 @@ export class GameScene extends Phaser.Scene {
     this.createInfoLine();
 
     const track = this.audio?.getCurrentTrack();
-    this.add
-      .text(
-        WORLD.width / 2,
-        WORLD.height - 30,
-        track
-          ? `♪ ${track.title}${track.author ? ` · ${track.author}` : ""}`
-          : "",
-        {
+    this.hudLayer.add(
+      this.add
+        .text(
+          VIEWPORT.width / 2,
+          VIEWPORT.height - 30,
+          track
+            ? `♪ ${track.title}${track.author ? ` · ${track.author}` : ""}`
+            : "",
+          {
+            fontFamily: TYPOGRAPHY.fontFamily,
+            fontSize: `${TYPOGRAPHY.sizes.tiny}px`,
+            color: COLORS.textDisabled,
+          },
+        )
+        .setOrigin(0.5),
+    );
+
+    this.hudLayer.add(
+      this.add
+        .text(VIEWPORT.width - 8, VIEWPORT.height - 26, "V1 · Développement", {
           fontFamily: TYPOGRAPHY.fontFamily,
           fontSize: `${TYPOGRAPHY.sizes.tiny}px`,
           color: COLORS.textDisabled,
-        },
-      )
-      .setOrigin(0.5)
-      .setDepth(2);
-
-    this.add
-      .text(WORLD.width - 8, WORLD.height - 26, "V1 · Développement", {
-        fontFamily: TYPOGRAPHY.fontFamily,
-        fontSize: `${TYPOGRAPHY.sizes.tiny}px`,
-        color: COLORS.textDisabled,
-      })
-      .setOrigin(1, 1)
-      .setDepth(2);
+        })
+        .setOrigin(1, 1),
+    );
 
     this.beginTurn("left");
 
@@ -201,48 +232,40 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawHudBand(): void {
-    const g = this.add.graphics().setDepth(4);
+    if (!this.hudLayer) return;
+    const g = this.add.graphics();
     g.fillStyle(0x0e1810, 0.66);
-    g.fillRect(0, 0, WORLD.width, HUD_BAND.height);
+    g.fillRect(0, 0, VIEWPORT.width, HUD_BAND.height);
     g.lineStyle(1, colorToNumber(COLORS.accent), 0.5);
-    g.lineBetween(0, HUD_BAND.height, WORLD.width, HUD_BAND.height);
+    g.lineBetween(0, HUD_BAND.height, VIEWPORT.width, HUD_BAND.height);
+    this.hudLayer.add(g);
   }
 
   private createHudButtons(): void {
-    createButton(
+    if (!this.hudLayer) return;
+    const menuButton = createIconButton(
       this,
-      70,
+      64,
       HUD_BAND.y / 2,
-      "Menu",
+      "menu",
       () => this.scene.start(SCENE_KEYS.MenuScene),
-      {
-        width: 112,
-        height: 36,
-        fontSize: TYPOGRAPHY.sizes.small,
-        uppercase: true,
-        fill: COLORS.surface,
-        hoverFill: COLORS.surfaceAlt,
-      },
-    ).setDepth(5);
+      { size: 44 },
+    );
+    this.hudLayer.add(menuButton);
 
-    createButton(
+    const settingsButton = createIconButton(
       this,
-      198,
+      124,
       HUD_BAND.y / 2,
-      "Réglages",
+      "gear",
       () => this.openSettings(),
-      {
-        width: 128,
-        height: 36,
-        fontSize: TYPOGRAPHY.sizes.small,
-        uppercase: true,
-        fill: COLORS.surface,
-        hoverFill: COLORS.surfaceAlt,
-      },
-    ).setDepth(5);
+      { size: 44 },
+    );
+    this.hudLayer.add(settingsButton);
   }
 
   private createWindPill(): void {
+    if (!this.hudLayer) return;
     this.windPill = createPill(this, 0, HUD_BAND.y / 2, "", {
       fill: COLORS.surface,
       textColor: COLORS.accent,
@@ -250,12 +273,13 @@ export class GameScene extends Phaser.Scene {
       uppercase: true,
       height: 34,
     });
-    this.windPill.container.setDepth(5);
+    this.hudLayer.add(this.windPill.container);
     this.setWind(this.wind);
   }
 
   private createTurnPill(): void {
-    this.turnPill = createPill(this, WORLD.width / 2, HUD_BAND.y / 2, "", {
+    if (!this.hudLayer) return;
+    this.turnPill = createPill(this, VIEWPORT.width / 2, HUD_BAND.y / 2, "", {
       fontSize: TYPOGRAPHY.sizes.body,
       fontFamily: TYPOGRAPHY.fontFamilyTitle,
       letterSpacing: 3,
@@ -263,7 +287,7 @@ export class GameScene extends Phaser.Scene {
       height: 42,
       fill: COLORS.surfaceAlt,
     });
-    this.turnPill.container.setDepth(5);
+    this.hudLayer.add(this.turnPill.container);
   }
 
   update(_time: number, delta: number): void {
@@ -278,6 +302,29 @@ export class GameScene extends Phaser.Scene {
         this.handleArrowImpact(arrow, pos.x, pos.y, pos.angle, part);
       }
     }
+
+    this.syncCamera();
+  }
+
+  /** Caméra : suit la flèche en vol, sinon se recentre sur le côté actif. */
+  private syncCamera(): void {
+    if (!this.cameraFocus || !this.hudLayer) return;
+
+    const arrow = this.arrows[0];
+    const targetX =
+      arrow && !this.gameOver ? arrow.position.x : this.cameraTargetX;
+    const half = VIEWPORT.width / 2;
+    this.cameraFocus.x = Phaser.Math.Clamp(
+      targetX,
+      half,
+      WORLD.width - half,
+    );
+    this.cameraFocus.y = WORLD.height / 2;
+
+    this.hudLayer.setPosition(
+      this.cameras.main.scrollX,
+      this.cameras.main.scrollY,
+    );
   }
 
   private handleShot(angle: number, power: number): void {
@@ -295,12 +342,9 @@ export class GameScene extends Phaser.Scene {
       angle,
       power,
       wind: this.wind,
-      gravity: this.env.gravity,
+      gravity: this.gravity,
       groundBelow: GROUND_Y - originY,
-      boundsX:
-        side === "left"
-          ? { min: -originX, max: WORLD.width - originX }
-          : { min: originX - WORLD.width, max: originX },
+      boundsX: { min: -originX, max: WORLD.width - originX },
     });
 
     if (points.length < 2) return;
@@ -486,6 +530,7 @@ export class GameScene extends Phaser.Scene {
     this.archer?.idle();
     this.botArcher?.idle();
     this.aim?.setEnabled(side === "left");
+    this.cameraTargetX = side === "left" ? PLAYER_FEET_X.left : this.botX;
 
     if (side === "left") {
       this.turnNumber += 1;
@@ -507,21 +552,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createInfoLine(): void {
+    if (!this.hudLayer) return;
     this.infoLine = this.add
-      .text(WORLD.width / 2, 58, "", {
+      .text(VIEWPORT.width / 2, 58, "", {
         fontFamily: TYPOGRAPHY.fontFamily,
         fontSize: `${TYPOGRAPHY.sizes.tiny}px`,
         color: COLORS.textMuted,
       })
       .setLetterSpacing(2)
-      .setOrigin(0.5)
-      .setDepth(5);
+      .setOrigin(0.5);
+    this.hudLayer.add(this.infoLine);
     this.updateInfoLine();
   }
 
   private updateInfoLine(): void {
     this.infoLine?.setText(
-      `TOUR ${this.turnNumber} · ${this.env.name.toUpperCase()}`,
+      `TOUR ${this.turnNumber} · ${this.env.name.toUpperCase()} · GRAVITÉ ${Math.round(
+        this.gravity,
+      )} · ADVERSAIRE ${Math.round(this.enemyDistance / 10)} M`,
     );
   }
 
@@ -540,7 +588,7 @@ export class GameScene extends Phaser.Scene {
   private scheduleBotShot(): void {
     if (this.botWindupActive) return;
     const distance = this.botX - PLAYER_FEET_X.left;
-    const shot = chooseBotShot(distance, Math.random, this.env.gravity);
+    const shot = chooseBotShot(distance, Math.random, this.gravity);
     const thinkMs = 550 + Math.random() * 550;
     const windupMs = 480 + Math.random() * 380;
     const holdMs = 180 + Math.random() * 320;
@@ -611,8 +659,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createHpBars(): void {
-    this.hpPlayer = this.add.graphics().setDepth(30);
-    this.hpBot = this.add.graphics().setDepth(30);
+    if (!this.hudLayer) return;
+    this.hpPlayer = this.add.graphics();
+    this.hpBot = this.add.graphics();
+    this.hudLayer.add([this.hpPlayer, this.hpBot]);
 
     this.hpPlayerText = this.add
       .text(12 + HP_BAR.width / 2, HP_BAR.y + HP_BAR.height / 2, "", {
@@ -621,12 +671,12 @@ export class GameScene extends Phaser.Scene {
         color: COLORS.text,
       })
       .setLetterSpacing(1)
-      .setOrigin(0.5)
-      .setDepth(31);
+      .setOrigin(0.5);
+    this.hudLayer.add(this.hpPlayerText);
 
     this.hpBotText = this.add
       .text(
-        WORLD.width - 12 - HP_BAR.width / 2,
+        VIEWPORT.width - 12 - HP_BAR.width / 2,
         HP_BAR.y + HP_BAR.height / 2,
         "",
         {
@@ -636,28 +686,28 @@ export class GameScene extends Phaser.Scene {
         },
       )
       .setLetterSpacing(1)
-      .setOrigin(0.5)
-      .setDepth(31);
+      .setOrigin(0.5);
+    this.hudLayer.add(this.hpBotText);
 
-    this.add
+    const labelPlayer = this.add
       .text(12, HP_BAR.y - 5, "VOUS", {
         fontFamily: TYPOGRAPHY.fontFamilyTitle,
         fontSize: "15px",
         color: COLORS.textMuted,
       })
       .setLetterSpacing(2)
-      .setOrigin(0, 1)
-      .setDepth(2);
+      .setOrigin(0, 1);
+    this.hudLayer.add(labelPlayer);
 
-    this.add
-      .text(WORLD.width - 12, HP_BAR.y - 5, "IA", {
+    const labelBot = this.add
+      .text(VIEWPORT.width - 12, HP_BAR.y - 5, "IA", {
         fontFamily: TYPOGRAPHY.fontFamilyTitle,
         fontSize: "15px",
         color: COLORS.textMuted,
       })
       .setLetterSpacing(2)
-      .setOrigin(1, 1)
-      .setDepth(2);
+      .setOrigin(1, 1);
+    this.hudLayer.add(labelBot);
 
     this.redrawHpBars();
     this.updateHpText("left");
@@ -681,7 +731,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.drawHpBar(
       this.hpBot,
-      WORLD.width - 12 - HP_BAR.width,
+      VIEWPORT.width - 12 - HP_BAR.width,
       HP_BAR.y,
       HP_BAR.width,
       HP_BAR.height,
@@ -715,10 +765,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private flashBar(side: GameSide): void {
-    const x = side === "left" ? 12 : WORLD.width - 12 - HP_BAR.width;
-    const flash = this.add.graphics().setDepth(31);
+    const x = side === "left" ? 12 : VIEWPORT.width - 12 - HP_BAR.width;
+    const flash = this.add.graphics();
     flash.fillStyle(colorToNumber(COLORS.danger), 0.5);
     flash.fillRoundedRect(x, HP_BAR.y, HP_BAR.width, HP_BAR.height, RADIUS.sm);
+    this.hudLayer?.add(flash);
     this.tweens.add({
       targets: flash,
       alpha: 0,
@@ -748,24 +799,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showEndScreen(): void {
-    if (this.endScreen) return;
+    if (this.endScreen || !this.hudLayer) return;
     const won = this.winner === "left";
+    const cx = VIEWPORT.width / 2;
+    const cy = VIEWPORT.height / 2;
 
-    this.endScreen = this.add
-      .rectangle(
-        WORLD.width / 2,
-        WORLD.height / 2,
-        WORLD.width,
-        WORLD.height,
-        0x0a0d14,
-        0.72,
-      )
-      .setDepth(50);
+    this.endScreen = this.add.rectangle(
+      cx,
+      cy,
+      VIEWPORT.width,
+      VIEWPORT.height,
+      0x0a0d14,
+      0.72,
+    );
+    this.hudLayer.add(this.endScreen);
 
-    this.add
+    const title = this.add
       .text(
-        WORLD.width / 2,
-        WORLD.height / 2 - 70,
+        cx,
+        cy - 70,
         won ? "Victoire !" : "Défaite…",
         {
           fontFamily: TYPOGRAPHY.fontFamilyTitle,
@@ -773,13 +825,13 @@ export class GameScene extends Phaser.Scene {
           color: won ? COLORS.success : COLORS.danger,
         },
       )
-      .setOrigin(0.5)
-      .setDepth(51);
+      .setOrigin(0.5);
+    this.hudLayer.add(title);
 
-    this.add
+    const subtitle = this.add
       .text(
-        WORLD.width / 2,
-        WORLD.height / 2 + 4,
+        cx,
+        cy + 4,
         won
           ? "Vous éliminez l'adversaire."
           : "Vous êtes éliminé par l'IA.",
@@ -789,13 +841,13 @@ export class GameScene extends Phaser.Scene {
           color: COLORS.textMuted,
         },
       )
-      .setOrigin(0.5)
-      .setDepth(51);
+      .setOrigin(0.5);
+    this.hudLayer.add(subtitle);
 
-    createButton(
+    const rematch = createButton(
       this,
-      WORLD.width / 2 - 85,
-      WORLD.height / 2 + 64,
+      cx - 85,
+      cy + 64,
       "Revanche",
       () => this.scene.restart(),
       {
@@ -806,12 +858,13 @@ export class GameScene extends Phaser.Scene {
         hoverFill: COLORS.accentHover,
         textColor: COLORS.bg,
       },
-    ).setDepth(51);
+    );
+    this.hudLayer.add(rematch);
 
-    createButton(
+    const menuButton = createButton(
       this,
-      WORLD.width / 2 + 85,
-      WORLD.height / 2 + 64,
+      cx + 85,
+      cy + 64,
       "Menu",
       () => this.scene.start(SCENE_KEYS.MenuScene),
       {
@@ -819,7 +872,8 @@ export class GameScene extends Phaser.Scene {
         height: 44,
         fontSize: TYPOGRAPHY.sizes.body,
       },
-    ).setDepth(51);
+    );
+    this.hudLayer.add(menuButton);
   }
 
   /** Remise à zéro des champs pointant vers des objets détruits (replay de scène). */
@@ -836,6 +890,8 @@ export class GameScene extends Phaser.Scene {
     this.wind = 0;
     this.playerHp = GAME_CONFIG.maxHp;
     this.botHp = GAME_CONFIG.maxHp;
+    this.gravity = GAME_CONFIG.gravity;
+    this.enemyDistance = 0;
     this.winner = null;
     this.gameOver = false;
     this.hpPlayer = undefined;
@@ -853,6 +909,9 @@ export class GameScene extends Phaser.Scene {
     this.audio = undefined;
     this.lastTrace = undefined;
     this.aidGraphics = undefined;
+    this.cameraTargetX = PLAYER_FEET_X.left;
+    this.cameraFocus = undefined;
+    this.hudLayer = undefined;
   }
 
   private openSettings(): void {
@@ -860,8 +919,9 @@ export class GameScene extends Phaser.Scene {
     this.settingsOpen = true;
     this.aim?.setEnabled(false);
     this.settingsMenu = createSettingsMenu(this, {
-      x: WORLD.width / 2,
-      y: WORLD.height / 2,
+      x: VIEWPORT.width / 2,
+      y: VIEWPORT.height / 2,
+      layer: this.hudLayer,
       settings: this.settings,
       onChange: (next) => {
         this.settings = next;
@@ -923,7 +983,7 @@ export class GameScene extends Phaser.Scene {
       angle,
       power,
       wind: this.wind,
-      gravity: this.env.gravity,
+      gravity: this.gravity,
       groundBelow: GROUND_Y - originY,
       boundsX: { min: -originX, max: WORLD.width - originX },
     });
@@ -1020,7 +1080,7 @@ export class GameScene extends Phaser.Scene {
     this.windPill.setText(`VENT ${glyph} ${Math.abs(wind)}`);
 
     const width = this.windPill.container.getBounds().width;
-    this.windPill.container.setX(WORLD.width - 20 - width / 2);
+    this.windPill.container.setX(VIEWPORT.width - 20 - width / 2);
     this.pulse(this.windPill.container);
   }
 }

@@ -1,8 +1,15 @@
 // apps/client/src/game/layout.ts
 // Constantes de layout du monde (Dimensions, sol, positions des joueurs).
 
-export const WORLD = {
+/** Zone visible à l'écran (résolution du canvas, caméra 1:1). */
+export const VIEWPORT = {
   width: 1280,
+  height: 720,
+} as const;
+
+/** Monde réel (plus large que l'écran) : la caméra défile dedans. */
+export const WORLD = {
+  width: 2560,
   height: 720,
 } as const;
 
@@ -15,10 +22,14 @@ export const PLAYER_FEET_X = {
   left: 190,
 } as const;
 
-/** Intervalle de placement du bot : toujours dans la portée d'un tir max. */
+/**
+ * Intervalle de placement du bot : parfois hors écran, toujours atteignable.
+ * La gravité effective est adaptée à la distance (l'atteignabilité reste donc
+ * garantie même à l'extrémité droite du monde).
+ */
 export const BOT_FEET_X = {
-  min: 920,
-  max: 1160,
+  min: 1100,
+  max: 2500,
 } as const;
 
 /** Position des pieds du bot, tirée dans l'intervalle de portée. */
